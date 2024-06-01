@@ -1,53 +1,38 @@
+version: '3'
 services:
-  master:
-    build:
-      context: ./postgres
-      dockerfile: Dockerfile.dev
-    container_name: postgres_master
+  postgresql-master:
+    image: 'bitnami/postgresql:14.12.0'
     ports:
-      - "5432:5432"
-    env_file:
-      - .env
+      - '5432:5432'
     volumes:
-      - pgdata_master:/var/lib/postgresql/data
-      - ./postgres/postgresql.conf:/etc/postgresql/postgresql.conf
-      - ./postgres/pg_hba.conf:/etc/postgresql/pg_hba.conf
+      - 'postgresql_master_data:/bitnami/postgresql'
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-    command: postgres -c config_file=/etc/postgresql/postgresql.conf
-
-  slave:
-    image: postgres:latest
-    container_name: postgres_slave
+      - POSTGRESQL_REPLICATION_MODE=master
+      - POSTGRESQL_REPLICATION_USER=${POSTGRESQL_REPLICATION_USER}
+      - POSTGRESQL_REPLICATION_PASSWORD=${POSTGRESQL_REPLICATION_PASSWORD}
+      - POSTGRESQL_USERNAME=${POSTGRESQL_USERNAME}
+      - POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}
+      - POSTGRESQL_DATABASE=${POSTGRESQL_DATABASE}
+  postgresql-slave:
+    image: 'bitnami/postgresql:14.12.0'
     ports:
-      - "5433:5432"
-    environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_MASTER_SERVICE_HOST: postgres_master
-    volumes:
-      - pgdata_slave:/var/lib/postgresql/data
+      - '5432'
     depends_on:
-      - master
-    command: >
-      bash -c "until pg_isready -h postgres_master -p 5432; do sleep 1; done;
-               pg_basebackup -h postgres_master -D /var/lib/postgresql/data -U ${POSTGRES_USER} -vP -W;
-               postgres -c config_file=/etc/postgresql/postgresql.conf"
-
+      - postgresql-master
+    environment:
+      - POSTGRESQL_REPLICATION_MODE=slave
+      - POSTGRESQL_REPLICATION_USER=${POSTGRESQL_REPLICATION_USER}
+      - POSTGRESQL_REPLICATION_PASSWORD=${POSTGRESQL_REPLICATION_PASSWORD}
+      - POSTGRESQL_MASTER_HOST=postgresql-master
+      - POSTGRESQL_PASSWORD=${POSTGRESQL_PASSWORD}
+      - POSTGRESQL_MASTER_PORT_NUMBER=5432
+      
   pgadmin:
     image: dpage/pgadmin4
-    container_name: pgadmin_container
     environment:
-      PGADMIN_DEFAULT_EMAIL: ${PGADMIN_DEFAULT_EMAIL}
-      PGADMIN_DEFAULT_PASSWORD: ${PGADMIN_DEFAULT_PASSWORD}
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_DEFAULT_EMAIL}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_DEFAULT_PASSWORD}
     ports:
-      - "8080:80"
-    depends_on:
-      - master
-
+      - "5755:80"
 volumes:
-  pgdata_master:
-  pgdata_slave:
+  postgresql_master_data:
